@@ -1,0 +1,28 @@
+---
+# Disable Puppet across a group with a message for the change window, do the work, then
+# enable it again and run it once to put everything back as Puppet wants it.
+- name: Disable Puppet for the change window
+  hosts: app_servers
+  become: true
+  roles:
+    - role: libre_devops.puppet_agent
+      vars:
+        puppet_agent_action: disable
+        puppet_agent_disable_message: "CHG0012345: application upgrade, back by 18:00"
+
+# ... the change goes here ...
+
+- name: Enable Puppet and run it once
+  hosts: app_servers
+  become: true
+  serial: 5
+  tasks:
+    - name: Enable the agent
+      ansible.builtin.include_role:
+        name: libre_devops.puppet_agent
+      vars:
+        puppet_agent_action: enable
+
+    - name: Run the agent
+      ansible.builtin.include_role:
+        name: libre_devops.puppet_agent

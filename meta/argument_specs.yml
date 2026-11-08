@@ -1,0 +1,68 @@
+---
+argument_specs:
+  main:
+    short_description: Run, disable and enable an installed Puppet or OpenVox agent
+    description:
+      - run does one foreground run with puppet agent --test and reads its detailed exit code
+        and the last run summary. In check mode, or with puppet_agent_noop, the run is a noop
+        run.
+      - disable and enable set or clear the agent's disabled lock, with a message.
+      - The role does not install, configure or sign the certificate of an agent.
+    author:
+      - Craig Thacker
+    options:
+      puppet_agent_action:
+        description: What to do.
+        type: str
+        choices: [run, disable, enable]
+        default: run
+      puppet_agent_bin:
+        description: The puppet command.
+        type: path
+        default: /opt/puppetlabs/bin/puppet
+      puppet_agent_noop:
+        description: Run with --noop, so nothing changes and pending changes are reported. Check mode does the same.
+        type: bool
+        default: false
+      puppet_agent_tags:
+        description: Apply only resources with these tags (--tags).
+        type: list
+        elements: str
+        default: []
+      puppet_agent_environment:
+        description: Use this Puppet environment for the run (--environment). Empty uses the agent's own.
+        type: str
+        default: ""
+      puppet_agent_server:
+        description: Use this Puppet server for the run (--server). Empty uses the agent's own.
+        type: str
+        default: ""
+      puppet_agent_extra_args:
+        description: More arguments for puppet agent --test, one per item.
+        type: list
+        elements: str
+        default: []
+      puppet_agent_when_disabled:
+        description:
+          - What run does when the agent is disabled. fail stops with the disable message. skip
+            leaves the agent alone. override enables it, runs once and disables it again with
+            the same message.
+        type: str
+        choices: [fail, skip, override]
+        default: fail
+      puppet_agent_wait_for_lock:
+        description: Seconds to wait for a run already in progress to finish. 0 does not wait.
+        type: int
+        default: 600
+      puppet_agent_run_timeout:
+        description: Seconds a run may take before Ansible stops waiting for it.
+        type: int
+        default: 3600
+      puppet_agent_fail_on_resource_failures:
+        description: Fail when Puppet reports failed resources (exit codes 4 and 6).
+        type: bool
+        default: true
+      puppet_agent_disable_message:
+        description: The message for the disable action.
+        type: str
+        default: Disabled by Ansible

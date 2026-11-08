@@ -1,0 +1,17 @@
+---
+- name: Prepare
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Create the agent's bin directory
+      ansible.builtin.file:
+        path: /opt/puppetlabs/bin
+        state: directory
+        mode: "0755"
+
+    - name: Install the stand-in puppet command
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../fixtures/puppet"
+        dest: /opt/puppetlabs/bin/puppet
+        mode: "0755"

@@ -1,0 +1,8 @@
+---
+# Install the role straight from GitHub, pinned to a release tag:
+#   ansible-galaxy install -r requirements.yml
+roles:
+  - name: libre_devops.puppet_agent
+    src: https://github.com/libre-devops/ansible-role-puppet-agent.git
+    scm: git
+    version: 1.0.0

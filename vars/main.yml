@@ -1,0 +1,18 @@
+---
+# Internal values. Not meant to be overridden.
+
+# puppet agent --test exit codes, with --detailed-exitcodes (which --test turns on).
+__puppet_agent_exit_codes:
+  0: The run succeeded with no changes or failures.
+  1: The run failed, or was not attempted because another run was in progress.
+  2: The run succeeded, and some resources were changed.
+  4: The run succeeded, and some resources failed.
+  6: The run succeeded, and included both changes and failures.
+
+__puppet_agent_run_argv: >-
+  {{ [puppet_agent_bin, 'agent', '--test']
+     + (['--noop'] if (puppet_agent_noop | bool or ansible_check_mode) else [])
+     + (['--tags', puppet_agent_tags | join(',')] if puppet_agent_tags | length > 0 else [])
+     + (['--environment', puppet_agent_environment] if puppet_agent_environment | length > 0 else [])
+     + (['--server', puppet_agent_server] if puppet_agent_server | length > 0 else [])
+     + puppet_agent_extra_args }}

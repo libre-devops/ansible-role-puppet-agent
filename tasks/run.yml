@@ -1,0 +1,100 @@
+---
+# One foreground run with puppet agent --test. The exit code decides the result: 0 is ok, 2 is
+# changed, 4 and 6 mean failed resources, 1 means the run failed. In check mode, or with
+# puppet_agent_noop, the run is a noop run and reports changed when resources are out of sync.
+
+- name: Stop because the agent is disabled
+  ansible.builtin.fail:
+    msg: >-
+      The Puppet agent on {{ inventory_hostname }} is disabled: '{{ __puppet_agent_disabled_message }}'.
+      Set puppet_agent_when_disabled to skip to leave it, or to override to run it once and
+      disable it again.
+  when:
+    - __puppet_agent_disabled
+    - puppet_agent_when_disabled == 'fail'
+
+- name: Say the run is skipped because the agent is disabled
+  ansible.builtin.debug:
+    msg: "Skipped: the Puppet agent is disabled: '{{ __puppet_agent_disabled_message }}'."
+  when:
+    - __puppet_agent_disabled
+    - puppet_agent_when_disabled == 'skip'
+
+- name: Run the agent once
+  when: not __puppet_agent_disabled or puppet_agent_when_disabled == 'override'
+  block:
+    - name: Wait for a run already in progress
+      ansible.builtin.wait_for:
+        path: "{{ __puppet_agent_paths.agent_catalog_run_lockfile }}"
+        state: absent
+        timeout: "{{ puppet_agent_wait_for_lock }}"
+      when: puppet_agent_wait_for_lock | int > 0
+
+    # Enabling and disabling again puts the agent back as it was, so neither reports a change.
+    - name: Enable the agent for this run
+      ansible.builtin.command:
+        argv: ["{{ puppet_agent_bin }}", agent, --enable]
+      changed_when: false
+      check_mode: false
+      when: __puppet_agent_disabled
+
+    - name: Run puppet agent --test
+      ansible.builtin.command:
+        argv: "{{ __puppet_agent_run_argv }}"
+      register: __puppet_agent_run
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      timeout: "{{ puppet_agent_run_timeout }}"
+
+  always:
+    - name: Disable the agent again with its message
+      ansible.builtin.command:
+        argv: ["{{ puppet_agent_bin }}", agent, --disable, "{{ __puppet_agent_disabled_message }}"]
+      changed_when: false
+      check_mode: false
+      when: __puppet_agent_disabled
+
+- name: Read the last run summary
+  ansible.builtin.slurp:
+    src: "{{ __puppet_agent_paths.lastrunfile }}"
+  register: __puppet_agent_summary_file
+  failed_when: false
+  when: __puppet_agent_run is not skipped
+
+- name: Keep the result as a fact
+  ansible.builtin.set_fact:
+    puppet_agent_result:
+      rc: "{{ __puppet_agent_run.rc }}"
+      meaning: "{{ __puppet_agent_exit_codes[__puppet_agent_run.rc] | default('Unknown exit code.') }}"
+      noop: "{{ '--noop' in __puppet_agent_run_argv }}"
+      summary: >-
+        {{ (__puppet_agent_summary_file.content | b64decode | from_yaml)
+           if __puppet_agent_summary_file.content is defined else {} }}
+      errors: "{{ __puppet_agent_run.stdout_lines | select('search', '^(Error|Warning):') | list }}"
+  when: __puppet_agent_run is not skipped
+
+- name: Report the run
+  ansible.builtin.debug:
+    msg: >-
+      {{ puppet_agent_result.meaning }}
+      Resources: {{ puppet_agent_result.summary.resources.changed | default('?') }} changed,
+      {{ puppet_agent_result.summary.resources.failed | default('?') }} failed,
+      {{ puppet_agent_result.summary.resources.out_of_sync | default('?') }} out of sync,
+      of {{ puppet_agent_result.summary.resources.total | default('?') }}.
+  # Changes are real changes after a run, and pending changes after a noop run.
+  changed_when: >-
+    (__puppet_agent_run.rc in [2, 6])
+    or (puppet_agent_result.noop and (puppet_agent_result.summary.resources.out_of_sync | default(0) | int) > 0)
+  when: __puppet_agent_run is not skipped
+
+- name: Check the run worked
+  ansible.builtin.assert:
+    that:
+      - __puppet_agent_run.rc in [0, 2]
+        or (__puppet_agent_run.rc in [4, 6] and not puppet_agent_fail_on_resource_failures | bool)
+    fail_msg: >-
+      puppet agent --test exited {{ __puppet_agent_run.rc }}: {{ puppet_agent_result.meaning }}
+      {{ puppet_agent_result.errors | join(' ') }}
+    quiet: true
+  when: __puppet_agent_run is not skipped

@@ -1,0 +1,23 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read the stand-in's call log
+      ansible.builtin.slurp:
+        src: /var/log/fake-puppet.log
+      register: __verify_log
+
+    - name: Check the role ran puppet agent --test with the tags and environment
+      ansible.builtin.assert:
+        that:
+          - "'agent --test --tags ntp,ssh --environment production' in __verify_log.content | b64decode"
+        quiet: true
+
+    - name: Check the check step ran a noop run first, then the real runs
+      ansible.builtin.assert:
+        that:
+          - (__verify_log.content | b64decode).splitlines()[0] == 'agent --test --noop --tags ntp,ssh --environment production'
+          - (__verify_log.content | b64decode).splitlines()[1] == 'agent --test --tags ntp,ssh --environment production'
+        quiet: true

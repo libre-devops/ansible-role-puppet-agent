@@ -1,0 +1,40 @@
+---
+- name: A run on a disabled agent fails with the message
+  hosts: all
+  become: true
+  tasks:
+    - name: Run the role and expect it to stop
+      block:
+        - name: Run the agent
+          ansible.builtin.include_role:
+            name: libre_devops.puppet_agent
+          vars:
+            puppet_agent_wait_for_lock: 5
+
+        - name: Fail if the role did not stop
+          ansible.builtin.fail:
+            msg: The role ran a disabled agent without being told to.
+      rescue:
+        - name: Check the role stopped because of the disable message
+          ansible.builtin.assert:
+            that:
+              - "'Change freeze' in ansible_failed_result.msg"
+            quiet: true
+
+- name: Override runs the agent once and disables it again
+  hosts: all
+  become: true
+  roles:
+    - role: libre_devops.puppet_agent
+      vars:
+        puppet_agent_when_disabled: override
+        puppet_agent_wait_for_lock: 5
+
+- name: Disabling with the same message changes nothing
+  hosts: all
+  become: true
+  roles:
+    - role: libre_devops.puppet_agent
+      vars:
+        puppet_agent_action: disable
+        puppet_agent_disable_message: Change freeze

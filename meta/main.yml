@@ -1,0 +1,32 @@
+---
+galaxy_info:
+  namespace: libre_devops
+  role_name: puppet_agent
+  author: Craig Thacker
+  company: Libre DevOps
+  description: >-
+    Run, disable and enable an installed Puppet or OpenVox agent from Ansible (puppet agent
+    --test), reading the detailed exit codes and the last run summary
+  license: MIT
+  min_ansible_version: "2.16"
+  issue_tracker_url: https://github.com/libre-devops/ansible-role-puppet-agent/issues
+  platforms:
+    - name: EL
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+    - name: SLES
+      versions:
+        - all
+  galaxy_tags:
+    - puppet
+    - openvox
+    - configuration
+    - operations
+
+dependencies: []

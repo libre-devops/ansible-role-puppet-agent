@@ -1,0 +1,15 @@
+# Python and tooling
+.venv/
+__pycache__/
+.cache/
+.ansible/
+*.retry
+
+# Editors
+.idea/
+.vscode/
+
+# Never commit inventories or vault passwords.
+inventory.ini
+/inventory.yml
+.vault_pass*

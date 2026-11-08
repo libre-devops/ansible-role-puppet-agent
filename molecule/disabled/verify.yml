@@ -1,0 +1,23 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Read the disabled lock
+      ansible.builtin.slurp:
+        src: /opt/puppetlabs/puppet/cache/state/agent_disabled.lock
+      register: __verify_lock
+
+    - name: Read the stand-in's call log
+      ansible.builtin.slurp:
+        src: /var/log/fake-puppet.log
+      register: __verify_log
+
+    - name: Check the agent ran once and is disabled again with the original message
+      ansible.builtin.assert:
+        that:
+          - (__verify_lock.content | b64decode | from_json).disabled_message == 'Change freeze'
+          - "'agent --test' in __verify_log.content | b64decode"
+          - "'agent --enable' in __verify_log.content | b64decode"
+        quiet: true

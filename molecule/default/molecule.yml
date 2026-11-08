@@ -1,0 +1,15 @@
+---
+# The check step runs the converge playbook with --check, which the role turns into a noop
+# run. Then a run with tags and an environment changes resources on the first run and nothing
+# on the second, so the idempotence step passes the way it would on a converged server.
+scenario:
+  test_sequence:
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - check
+    - converge
+    - idempotence
+    - verify
+    - destroy

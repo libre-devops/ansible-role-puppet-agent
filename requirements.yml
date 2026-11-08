@@ -1,0 +1,5 @@
+---
+# Collections for development and tests. The role itself only uses ansible.builtin.
+collections:
+  - name: containers.podman
+    version: ">=1.16.0,<2.0.0"

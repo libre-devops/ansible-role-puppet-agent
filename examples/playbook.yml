@@ -1,0 +1,12 @@
+---
+# Example used by `just live`. Run Puppet on a batch of servers at a time, noop first:
+#
+#   just live inventory.ini --check        # noop run: what would change
+#   just live inventory.ini                # real run
+#   just live inventory.ini -e puppet_agent_tags='["ntp"]'
+- name: Run the Puppet agent
+  hosts: puppet_agents
+  become: true
+  serial: 10
+  roles:
+    - role: libre_devops.puppet_agent

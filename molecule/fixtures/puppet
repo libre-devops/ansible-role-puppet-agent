@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+#
+# Stand-in for /opt/puppetlabs/bin/puppet in the Molecule tests, which have no Puppet server.
+# It copies the behaviour the role depends on, as documented for puppet agent:
+#   config print <names...> --section agent   prints "name = value" lines
+#   agent --disable [MESSAGE]                 writes the lock file as {"disabled_message": ...}
+#   agent --enable                            removes it
+#   agent --test [...]                        exits 1 when disabled; otherwise the first run
+#                                             changes 3 resources (exit 2), later runs none
+#                                             (exit 0); --noop changes nothing (exit 0)
+# Every agent call is logged to /var/log/fake-puppet.log for the verify step.
+
+set -Eeuo pipefail
+
+readonly STATE_DIR=/opt/puppetlabs/puppet/cache/state
+readonly DISABLED_LOCK="${STATE_DIR}/agent_disabled.lock"
+readonly RUN_LOCK="${STATE_DIR}/agent_catalog_run.lock"
+readonly SUMMARY=/opt/puppetlabs/puppet/public/last_run_summary.yaml
+readonly CONVERGED=/var/lib/fake-puppet/converged
+readonly LOG=/var/log/fake-puppet.log
+
+#######################################
+# Write a last run summary like the agent does.
+# Arguments:
+#   Resources changed, resources out of sync.
+#######################################
+write_summary() {
+  mkdir -p "$(dirname "${SUMMARY}")"
+  cat >"${SUMMARY}" <<SUMMARY_YAML
+---
+version:
+  config: '1700000000'
+  puppet: 8.0.0
+resources:
+  changed: $1
+  failed: 0
+  out_of_sync: $2
+  total: 10
+events:
+  failure: 0
+  success: $1
+  noop: $(($2 - $1))
+  total: $2
+SUMMARY_YAML
+}
+
+config_print() {
+  local name
+  for name in "$@"; do
+    case "${name}" in
+      agent_disabled_lockfile) echo "agent_disabled_lockfile = ${DISABLED_LOCK}" ;;
+      agent_catalog_run_lockfile) echo "agent_catalog_run_lockfile = ${RUN_LOCK}" ;;
+      lastrunfile) echo "lastrunfile = ${SUMMARY}" ;;
+      --section | agent) ;;
+      *) echo "${name} = unknown" ;;
+    esac
+  done
+}
+
+agent() {
+  echo "agent $*" >>"${LOG}"
+  mkdir -p "${STATE_DIR}" "$(dirname "${CONVERGED}")"
+  case "${1:-}" in
+    --disable)
+      printf '{"disabled_message":"%s"}' "${2:-reason not specified}" >"${DISABLED_LOCK}"
+      return 0
+      ;;
+    --enable)
+      rm -f "${DISABLED_LOCK}"
+      return 0
+      ;;
+  esac
+  if [[ -f "${DISABLED_LOCK}" ]]; then
+    echo "Notice: Skipping run of Puppet configuration client; administratively disabled"
+    return 1
+  fi
+  if [[ " $* " == *" --noop "* ]]; then
+    if [[ -f "${CONVERGED}" ]]; then write_summary 0 0; else write_summary 0 3; fi
+    echo "Notice: Applied catalog in 0.10 seconds"
+    return 0
+  fi
+  if [[ -f "${CONVERGED}" ]]; then
+    write_summary 0 0
+    echo "Notice: Applied catalog in 0.10 seconds"
+    return 0
+  fi
+  touch "${CONVERGED}"
+  write_summary 3 3
+  echo "Notice: Applied catalog in 0.20 seconds"
+  return 2
+}
+
+main() {
+  case "${1:-}" in
+    config)
+      shift 2
+      config_print "$@"
+      ;;
+    agent)
+      shift
+      agent "$@"
+      ;;
+    *)
+      echo "fake puppet: unsupported command: $*" >&2
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"

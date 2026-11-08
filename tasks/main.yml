@@ -1,0 +1,73 @@
+---
+- name: Check puppet is installed
+  ansible.builtin.stat:
+    path: "{{ puppet_agent_bin }}"
+  register: __puppet_agent_binary
+
+- name: Stop if puppet is missing
+  ansible.builtin.assert:
+    that:
+      - __puppet_agent_binary.stat.exists
+    fail_msg: >-
+      {{ puppet_agent_bin }} does not exist on {{ inventory_hostname }}. This role runs an
+      installed Puppet or OpenVox agent; it does not install one. Set puppet_agent_bin if the
+      agent is somewhere else.
+    quiet: true
+
+# Asking for two settings at once makes puppet print "name = value" lines.
+- name: Find the agent's lock files and last run summary
+  ansible.builtin.command:
+    argv:
+      - "{{ puppet_agent_bin }}"
+      - config
+      - print
+      - agent_disabled_lockfile
+      - agent_catalog_run_lockfile
+      - lastrunfile
+      - --section
+      - agent
+  register: __puppet_agent_config
+  changed_when: false
+  check_mode: false
+
+- name: Note the paths
+  ansible.builtin.set_fact:
+    __puppet_agent_paths: >-
+      {{ __puppet_agent_config.stdout_lines
+         | select('search', ' = ')
+         | map('regex_replace', '^\s*(\S+)\s*=\s*(.*?)\s*$', '\1=\2')
+         | map('split', '=', 1)
+         | items2dict(key_name=0, value_name=1) }}
+
+- name: Read whether the agent is disabled
+  ansible.builtin.slurp:
+    src: "{{ __puppet_agent_paths.agent_disabled_lockfile }}"
+  register: __puppet_agent_disabled_lock
+  failed_when: false
+
+- name: Note the disabled state
+  ansible.builtin.set_fact:
+    __puppet_agent_disabled: "{{ __puppet_agent_disabled_lock.content is defined }}"
+    __puppet_agent_disabled_message: >-
+      {{ ((__puppet_agent_disabled_lock.content | b64decode | from_json).disabled_message | default('reason not specified'))
+         if __puppet_agent_disabled_lock.content is defined else '' }}
+
+- name: Run the agent
+  ansible.builtin.include_tasks: run.yml
+  when: puppet_agent_action == 'run'
+
+- name: Disable the agent
+  ansible.builtin.command:
+    argv: ["{{ puppet_agent_bin }}", agent, --disable, "{{ puppet_agent_disable_message }}"]
+  changed_when: true
+  when:
+    - puppet_agent_action == 'disable'
+    - not __puppet_agent_disabled or __puppet_agent_disabled_message != puppet_agent_disable_message
+
+- name: Enable the agent
+  ansible.builtin.command:
+    argv: ["{{ puppet_agent_bin }}", agent, --enable]
+  changed_when: true
+  when:
+    - puppet_agent_action == 'enable'
+    - __puppet_agent_disabled

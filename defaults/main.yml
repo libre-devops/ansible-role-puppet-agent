@@ -1,0 +1,32 @@
+---
+# Every variable is described in README.md and validated by meta/argument_specs.yml.
+
+# run runs the agent once in the foreground (puppet agent --test). disable stops the agent
+# working, with a message. enable lets it work again.
+puppet_agent_action: run
+
+# The puppet command. /opt/puppetlabs/bin/puppet for Puppet and OpenVox agent packages.
+puppet_agent_bin: /opt/puppetlabs/bin/puppet
+
+# Options for a run.
+puppet_agent_noop: false
+puppet_agent_tags: []
+puppet_agent_environment: ""
+puppet_agent_server: ""
+puppet_agent_extra_args: []
+
+# What to do when the agent is disabled: fail, skip, or override (enable it, run, and disable
+# it again with the same message).
+puppet_agent_when_disabled: fail
+
+# Seconds to wait for a run already in progress to finish before starting. 0 does not wait.
+puppet_agent_wait_for_lock: 600
+
+# Seconds a run may take before Ansible gives up on it.
+puppet_agent_run_timeout: 3600
+
+# Fail the task when Puppet reports failed resources (exit codes 4 and 6).
+puppet_agent_fail_on_resource_failures: true
+
+# The message for the disable action, shown by the agent at every skipped run.
+puppet_agent_disable_message: Disabled by Ansible

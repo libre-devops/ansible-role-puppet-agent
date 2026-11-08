@@ -1,0 +1,34 @@
+---
+# Shared by every scenario under molecule/. Each platform boots systemd as PID 1, like a real
+# server. The tests use a stand-in for puppet: see molecule/fixtures/puppet. Pick one with: just test default rhel9
+# (the justfile adds the pup- prefix, which keeps these containers apart from other roles' tests)
+# Collections come from requirements.yml through "just deps", not from Molecule.
+driver:
+  name: podman
+
+platforms:
+  - name: pup-rhel9
+    image: registry.access.redhat.com/ubi9/ubi-init:latest
+    dockerfile: ../../.config/molecule/Containerfile.j2
+    command: /sbin/init
+    systemd: always
+  - name: pup-debian13
+    image: docker.io/library/debian:13
+    dockerfile: ../../.config/molecule/Containerfile.j2
+    command: /sbin/init
+    systemd: always
+  - name: pup-ubuntu2404
+    image: docker.io/library/ubuntu:24.04
+    dockerfile: ../../.config/molecule/Containerfile.j2
+    command: /sbin/init
+    systemd: always
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      callback_result_format: yaml
+      interpreter_python: auto_silent
+
+verifier:
+  name: ansible
