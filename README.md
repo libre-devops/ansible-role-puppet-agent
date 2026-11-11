@@ -49,7 +49,7 @@ It does not install, configure or upgrade the agent, or sign its certificate.
 | What | Detail |
 |---|---|
 | Control node | `ansible-core` 2.16 or later. No collections. |
-| Managed nodes | A Puppet or OpenVox agent with a signed certificate, at `/opt/puppetlabs/bin/puppet` (the path both projects' packages use) or wherever `puppet_agent_bin` says, and a Python that your `ansible-core` supports. RHEL 8 and SLES 15 ship Python 3.6, which ansible-core 2.17 and later cannot use: see [Python on managed nodes](./docs/using-without-galaxy.md#on-managed-nodes). |
+| Managed nodes | A Puppet or OpenVox agent with a signed certificate, at `/opt/puppetlabs/bin/puppet` (the path both projects' packages use) or wherever `puppet_agent_bin` says, and a Python that your `ansible-core` supports. RHEL 8 and SLES 15 ship Python 3.6, which ansible-core 2.17 and later cannot use: run [libre_devops.python](https://github.com/libre-devops/ansible-role-python) first, as in [RHEL 8 hosts with only Python 3.6](#rhel-8-hosts-with-only-python-36). |
 | Privileges | `become: true`, as for running the agent by hand. |
 
 ## Installation
@@ -141,6 +141,44 @@ A noop run exits `0` even when changes are pending, so for noop runs the role re
 
 ## Examples
 
+### RHEL 8 hosts with only Python 3.6
+
+RHEL 8 ships Python 3.6, which ansible-core 2.17 and later cannot run modules with, so every task fails before this role even starts (see [Troubleshooting](#troubleshooting)). Put [libre_devops.python](https://github.com/libre-devops/ansible-role-python) in front of this role, in the same play. It installs `python3.12` from AppStream, through your Satellite or mirror like any other package, points Ansible at it and gathers facts, and then this role runs as usual.
+
+Install both, for example from GitHub:
+
+```yaml
+# requirements.yml
+roles:
+  - name: libre_devops.python
+    src: https://github.com/libre-devops/ansible-role-python.git
+    scm: git
+    version: 1.0.0
+  - name: libre_devops.puppet_agent
+    src: https://github.com/libre-devops/ansible-role-puppet-agent.git
+    scm: git
+    version: 1.0.0
+```
+
+Then chain them:
+
+```yaml
+- name: Run the Puppet agent on RHEL 8
+  hosts: rhel8
+  become: true
+  serial: 10
+  # Gathering facts would fail on Python 3.6. libre_devops.python gathers them once it has
+  # installed Python 3.12, before libre_devops.puppet_agent needs them.
+  gather_facts: false
+  roles:
+    - role: libre_devops.python
+    - role: libre_devops.puppet_agent
+```
+
+Every later play in the same run uses the same Python. To skip `libre_devops.python` on later runs, set `ansible_python_interpreter: /usr/bin/python3.12` in `group_vars/rhel8.yml` once the hosts have it. For hosts with no repositories, `libre_devops.python` can push the packages from the control node instead (`python_bootstrap_source: files`), and SLES 15 gets `python311` the same way. See its README for every option.
+
+The first run on a host must be a real one, not `--check`, because installing Python is a change, so `--check` cannot do it. Once a host has Python 3.12, `--check` runs work as before.
+
 ### Apply one change everywhere
 
 ```bash
@@ -177,7 +215,7 @@ puppet_agent_noop: true
 
 | Symptom | What to check |
 |---|---|
-| `The module interpreter '/usr/bin/python3' was not found` or `Module result deserialization failed`, on the first task | The host only has Python 3.6 (RHEL 8, SLES 15), which ansible-core 2.17 and later cannot use. Every module fails, not only this role's. See [Python on managed nodes](./docs/using-without-galaxy.md#on-managed-nodes). |
+| `The module interpreter '/usr/bin/python3' was not found` or `Module result deserialization failed`, on the first task | The host only has Python 3.6 (RHEL 8, SLES 15), which ansible-core 2.17 and later cannot use. Every module fails, not only this role's. Run [libre_devops.python](https://github.com/libre-devops/ansible-role-python) first in the play, as in [RHEL 8 hosts with only Python 3.6](#rhel-8-hosts-with-only-python-36). |
 | `... does not exist on ...` | The agent is not installed, or is not at `/opt/puppetlabs/bin/puppet`. Set `puppet_agent_bin`. |
 | `The Puppet agent on ... is disabled` | Someone ran `puppet agent --disable`. Read the message, then use `puppet_agent_when_disabled: override` or `skip`, or enable it with `puppet_agent_action: enable`. |
 | Exit code 1 straight away | Another run was still going after `puppet_agent_wait_for_lock` seconds, the certificate is not signed, or the server is unreachable. `puppet_agent_result.errors` has Puppet's own messages. |
