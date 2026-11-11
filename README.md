@@ -49,7 +49,7 @@ It does not install, configure or upgrade the agent, or sign its certificate.
 | What | Detail |
 |---|---|
 | Control node | `ansible-core` 2.16 or later. No collections. |
-| Managed nodes | A Puppet or OpenVox agent with a signed certificate, at `/opt/puppetlabs/bin/puppet` (the path both projects' packages use) or wherever `puppet_agent_bin` says. |
+| Managed nodes | A Puppet or OpenVox agent with a signed certificate, at `/opt/puppetlabs/bin/puppet` (the path both projects' packages use) or wherever `puppet_agent_bin` says, and a Python that your `ansible-core` supports. RHEL 8 and SLES 15 ship Python 3.6, which ansible-core 2.17 and later cannot use: see [Python on managed nodes](./docs/using-without-galaxy.md#on-managed-nodes). |
 | Privileges | `become: true`, as for running the agent by hand. |
 
 ## Installation
@@ -61,6 +61,8 @@ ansible-galaxy role install libre_devops.puppet_agent
 ```
 
 Or pin a release from GitHub, as in [`examples/requirements.yml`](./examples/requirements.yml).
+
+Without Galaxy, or to keep a copy inside your organisation, see [Using the role without Galaxy](./docs/using-without-galaxy.md). It covers git, release archives, requirements files that point at your own servers, AWX and Automation Controller, execution environments, and managed nodes with Python 3.6 such as RHEL 8.
 
 ## Quick start
 
@@ -175,6 +177,7 @@ puppet_agent_noop: true
 
 | Symptom | What to check |
 |---|---|
+| `The module interpreter '/usr/bin/python3' was not found` or `Module result deserialization failed`, on the first task | The host only has Python 3.6 (RHEL 8, SLES 15), which ansible-core 2.17 and later cannot use. Every module fails, not only this role's. See [Python on managed nodes](./docs/using-without-galaxy.md#on-managed-nodes). |
 | `... does not exist on ...` | The agent is not installed, or is not at `/opt/puppetlabs/bin/puppet`. Set `puppet_agent_bin`. |
 | `The Puppet agent on ... is disabled` | Someone ran `puppet agent --disable`. Read the message, then use `puppet_agent_when_disabled: override` or `skip`, or enable it with `puppet_agent_action: enable`. |
 | Exit code 1 straight away | Another run was still going after `puppet_agent_wait_for_lock` seconds, the certificate is not signed, or the server is unreachable. `puppet_agent_result.errors` has Puppet's own messages. |
