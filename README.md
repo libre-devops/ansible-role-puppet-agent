@@ -13,7 +13,7 @@ Runs, disables and enables an installed Puppet or OpenVox agent from Ansible. A 
 
 [![CI](https://github.com/libre-devops/ansible-role-puppet-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/libre-devops/ansible-role-puppet-agent/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/libre-devops/ansible-role-puppet-agent?sort=semver&label=release)](https://github.com/libre-devops/ansible-role-puppet-agent/releases/latest)
-[![Galaxy](https://img.shields.io/badge/galaxy-libre__devops.puppet__agent-EE0000?logo=ansible&logoColor=white)](https://galaxy.ansible.com/ui/standalone/roles/libre_devops/puppet_agent/)
+[![Galaxy](https://img.shields.io/badge/galaxy-libre__devops.puppet__agent-EE0000?logo=ansible&logoColor=white)](https://galaxy.ansible.com/ui/standalone/roles/libre_devops/puppet_agent/documentation/)
 [![Licence](https://img.shields.io/github/license/libre-devops/ansible-role-puppet-agent)](./LICENSE)
 
 ---
